@@ -4,9 +4,21 @@
 
 #include "minefield.h"
 
+#include <array>
 #include <unordered_set>
 
 #include "rng.h"
+
+constexpr std::array ADJACENT_CELLS{
+    std::make_pair(-1, -1),
+    std::make_pair(-1, 0),
+    std::make_pair(-1, 1),
+    std::make_pair(0, -1),
+    std::make_pair(0, 1),
+    std::make_pair(1, -1),
+    std::make_pair(1, 0),
+    std::make_pair(1, 1)
+};
 
 int minMax(const int current, const int min, const int max) {
     return std::min(std::max(current, min), max);
@@ -149,26 +161,20 @@ void Minefield::openNearbyTiles(const int xPos, const int yPos) {
             continue;
         }
 
-        for (int y = -1; y < 2; ++y) {
-            for (int x = -1; x < 2; ++x) {
-                if (x == 0 && y == 0) {
+        for (auto [x, y]: ADJACENT_CELLS) {
+            const int neighborX = tileX + x;
+            const int neighborY = tileY + y;
+            const int neighborIndex = neighborY * width_ + neighborX;
+
+            if (neighborX >= 0 && neighborX < width_ &&
+                neighborY >= 0 && neighborY < height_) {
+                auto &tile = at(neighborX, neighborY);
+                if (tile.isOpen || tile.isFlagged) {
                     continue;
                 }
 
-                const int neighborX = tileX + x;
-                const int neighborY = tileY + y;
-                const int neighborIndex = neighborY * width_ + neighborX;
-
-                if (neighborX >= 0 && neighborX < width_ &&
-                    neighborY >= 0 && neighborY < height_) {
-                    auto &tile = at(neighborX, neighborY);
-                    if (tile.isOpen || tile.isFlagged) {
-                        continue;
-                    }
-
-                    if (visitedTiles.emplace(neighborIndex).second) {
-                        tilesToOpen.emplace_back(neighborX, neighborY);
-                    }
+                if (visitedTiles.emplace(neighborIndex).second) {
+                    tilesToOpen.emplace_back(neighborX, neighborY);
                 }
             }
         }
@@ -201,16 +207,10 @@ Tile &Minefield::at(const int xPos, const int yPos) {
 
 uint8_t Minefield::minesNearTile(const int xPos, const int yPos) const {
     uint8_t minesNear = 0;
-    for (int y = -1; y < 2; ++y) {
-        for (int x = -1; x < 2; ++x) {
-            if (x == 0 && y == 0) {
-                continue;
-            }
-
-            if (x + xPos >= 0 && x + xPos < width_ && y + yPos >= 0 && y + yPos < height_) {
-                if (tiles_[(y + yPos) * width_ + (x + xPos)].isMine) {
-                    ++minesNear;
-                }
+    for (auto [x, y]: ADJACENT_CELLS) {
+        if (x + xPos >= 0 && x + xPos < width_ && y + yPos >= 0 && y + yPos < height_) {
+            if (tiles_[(y + yPos) * width_ + (x + xPos)].isMine) {
+                ++minesNear;
             }
         }
     }
