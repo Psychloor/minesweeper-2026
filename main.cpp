@@ -160,53 +160,58 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_APP_FAILURE;
     }
 
-    auto *context = new AppContext();
-    *appstate = context;
-    parseSettingsFile(*context);
+    auto appContext = std::make_unique<AppContext>();
+    if (!appContext) {
+        SDL_Log("Failed to create app context");
+        return SDL_APP_FAILURE;
+    }
+
+    parseSettingsFile(*appContext);
 
     SDL_Window *window;
     SDL_Renderer *renderer;
-    if (!SDL_CreateWindowAndRenderer(TITLE_REGULAR, context->startingWidth * TileSize,
-                                     context->startingHeight * TileSize, 0,
+    if (!SDL_CreateWindowAndRenderer(TITLE_REGULAR, appContext->startingWidth * TileSize,
+                                     appContext->startingHeight * TileSize, 0,
                                      &window,
                                      &renderer)) {
         SDL_Log("SDL_CreateWindowAndRenderer failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    context->window.reset(window);
-    context->renderer.reset(renderer);
+    appContext->window.reset(window);
+    appContext->renderer.reset(renderer);
 
-    SDL_SetRenderVSync(context->renderer.get(), 1);
+    SDL_SetRenderVSync(appContext->renderer.get(), 1);
 
-    context->iconSurface.reset(SDL_LoadPNG("assets/icon.png"));
-    if (!context->iconSurface) {
+    appContext->iconSurface.reset(SDL_LoadPNG("assets/icon.png"));
+    if (!appContext->iconSurface) {
         SDL_Log("SDL_LoadPNG failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    SDL_SetWindowIcon(context->window.get(), context->iconSurface.get());
+    SDL_SetWindowIcon(appContext->window.get(), appContext->iconSurface.get());
 
     SDL_Surface *surface = SDL_LoadPNG("assets/tiles.png");
     if (!surface) {
         SDL_Log("SDL_LoadPNG failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    context->texture.reset(SDL_CreateTextureFromSurface(context->renderer.get(), surface));
+    appContext->texture.reset(SDL_CreateTextureFromSurface(appContext->renderer.get(), surface));
     SDL_DestroySurface(surface);
-    if (!context->texture) {
+    if (!appContext->texture) {
         SDL_Log("SDL_CreateTextureFromSurface failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    context->minefield = std::make_unique<Minefield>(context->startingWidth, context->startingHeight,
-                                                     context->startingMines);
-    if (!context->minefield) {
+    appContext->minefield = std::make_unique<Minefield>(appContext->startingWidth, appContext->startingHeight,
+                                                     appContext->startingMines);
+    if (!appContext->minefield) {
         SDL_Log("Failed to create minefield");
         return SDL_APP_FAILURE;
     }
-    context->tileSrcRects = std::make_unique<SDL_FRect[]>(context->minefield->width() * context->minefield->height());
-    context->tileDstRect = std::make_unique<SDL_FRect[]>(context->minefield->width() * context->minefield->height());
-    updateTileSrcRects(context);
+    appContext->tileSrcRects = std::make_unique<SDL_FRect[]>(appContext->minefield->width() * appContext->minefield->height());
+    appContext->tileDstRect = std::make_unique<SDL_FRect[]>(appContext->minefield->width() * appContext->minefield->height());
+    updateTileSrcRects(appContext.get());
 
+    *appstate = appContext.release();
     return SDL_APP_CONTINUE;
 }
 
@@ -238,7 +243,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_RenderRect(renderer, &mouseRect);
 
     SDL_RenderPresent(renderer);
-
+    SDL_Delay(2);
     return SDL_APP_CONTINUE;
 }
 
@@ -295,10 +300,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
-    if (appstate) {
-        auto *context = static_cast<AppContext *>(appstate);
-        delete context;
-    }
+    std::unique_ptr<AppContext> context(static_cast<AppContext*>(appstate));
+    context.reset();
 
     SDL_Quit();
 }
