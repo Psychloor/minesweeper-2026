@@ -6,7 +6,7 @@ A simple Minesweeper game written in C++ using SDL3.
 
 - Classic Minesweeper-style gameplay
 - Configurable board width, height, and mine count
-- First click is safe
+- The first click is safe
 - Flood-fill opening for empty cells
 - Flag and question-mark cell states
 - Game over and win detection
@@ -14,12 +14,12 @@ A simple Minesweeper game written in C++ using SDL3.
 
 ## Controls
 
-| Input | Action |
-| --- | --- |
-| Left click | Open a cell |
+| Input       | Action                                           |
+|-------------|--------------------------------------------------|
+| Left click  | Open a cell                                      |
 | Right click | Cycle cell mark: flag → question mark → unmarked |
-| `N` | Start a new field/game after game over or win |
-| `Space` | Start a new field/game after game over or win |
+| `N`         | Start a new field/game after game over or win    |
+| `Space`     | Start a new field/game after game over or win    |
 
 ## Configuration
 
@@ -35,11 +35,11 @@ mines=40
 
 ### Settings
 
-| Key | Description |
-| --- | --- |
-| `width` | Board width in cells |
+| Key      | Description           |
+|----------|-----------------------|
+| `width`  | Board width in cells  |
 | `height` | Board height in cells |
-| `mines` | Number of mines |
+| `mines`  | Number of mines       |
 
 The mine count is clamped automatically:
 
@@ -62,55 +62,6 @@ The goal is to open every non-mine cell without clicking on a mine.
     - Unmarked
 
 You win when all non-mine cells are opened.
-
-## Assets
-
-Game assets are stored in the `assets` folder.
-
-Expected files include:
-```text
-assets/ tiles.png icon.png
-```
-
-
-When building with CMake, the `assets` folder and `settings.ini` are copied next to the executable automatically.
-
-## Building
-
-This project uses CMake and SDL3.
-
-### Requirements
-
-- CMake
-- A C++23-capable compiler
-- SDL3 source included in the project as a submodule at `third_party/SDL`
-
-### Build with CMake
-
-```bash
-cmake -S . -B build cmake --build build
-```
-
-After building, the executable will be placed in the build output directory, along with:
-```text
-assets/ settings.ini
-```
-
-
-## Running
-
-Run the generated executable from its output directory so it can find `settings.ini` and the `assets` folder.
-
-Example on Windows:
-```powershell
-.\minesweeper.exe
-```
-
-Example on Linux/macOS:
-```bash
-./minesweeper
-```
-
 
 ## Notes
 

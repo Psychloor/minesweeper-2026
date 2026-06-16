@@ -11,8 +11,8 @@
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
 
-constexpr int TileSize = 24;
-constexpr float TileTexSize = 16.f;
+constexpr int TILE_SIZE = 24;
+constexpr float TILE_TEX_SIZE = 16.f;
 
 constexpr auto TITLE_REGULAR = "Minesweeper";
 constexpr auto TITLE_GAME_OVER = "Minesweeper - Game Over";
@@ -95,8 +95,8 @@ SDL_FRect tileTexFRect(const Tile &tile, const bool explosionPoint, const bool i
     SDL_FRect tileRect{
         .x = 1,
         .y = 2,
-        .w = TileTexSize,
-        .h = TileTexSize
+        .w = TILE_TEX_SIZE,
+        .h = TILE_TEX_SIZE
     };
 
     if (tile.isOpen) {
@@ -128,8 +128,8 @@ SDL_FRect tileTexFRect(const Tile &tile, const bool explosionPoint, const bool i
         }
     }
 
-    tileRect.x *= TileTexSize;
-    tileRect.y *= TileTexSize;
+    tileRect.x *= TILE_TEX_SIZE;
+    tileRect.y *= TILE_TEX_SIZE;
 
     return tileRect;
 }
@@ -146,8 +146,8 @@ void updateTileSrcRects(const AppContext *context) {
         context->tileSrcRects[i] = tileTexFRect(tile, explosionPos.x == x && explosionPos.y == y,
                                                 context->minefield->isGameOver());
         context->tileDstRect[i] = {
-            .x = static_cast<float>(x * TileSize), .y = static_cast<float>(y * TileSize),
-            .w = static_cast<float>(TileSize), .h = static_cast<float>(TileSize)
+            .x = static_cast<float>(x * TILE_SIZE), .y = static_cast<float>(y * TILE_SIZE),
+            .w = static_cast<float>(TILE_SIZE), .h = static_cast<float>(TILE_SIZE)
         };
     }
 }
@@ -170,8 +170,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     SDL_Window *window;
     SDL_Renderer *renderer;
-    if (!SDL_CreateWindowAndRenderer(TITLE_REGULAR, g_appContext->startingWidth * TileSize,
-                                     g_appContext->startingHeight * TileSize, 0,
+    if (!SDL_CreateWindowAndRenderer(TITLE_REGULAR, g_appContext->startingWidth * TILE_SIZE,
+                                     g_appContext->startingHeight * TILE_SIZE, 0,
                                      &window,
                                      &renderer)) {
         SDL_Log("SDL_CreateWindowAndRenderer failed: %s", SDL_GetError());
@@ -236,8 +236,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
 
     // Cursor
     const auto mouseRect = SDL_FRect{
-        .x = static_cast<float>(context->mouse.x * TileSize), .y = static_cast<float>(context->mouse.y * TileSize), // NOLINT(*-integer-division)
-        .w = static_cast<float>(TileSize), .h = static_cast<float>(TileSize)
+        .x = static_cast<float>(context->mouse.x * TILE_SIZE), .y = static_cast<float>(context->mouse.y * TILE_SIZE), // NOLINT(*-integer-division)
+        .w = static_cast<float>(TILE_SIZE), .h = static_cast<float>(TILE_SIZE)
     };
 
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 160);
@@ -275,8 +275,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             return SDL_APP_SUCCESS;
 
         case SDL_EVENT_MOUSE_MOTION:
-            context->mouse.x = static_cast<int>(SDL_floorf(event->motion.x / TileSize));
-            context->mouse.y = static_cast<int>(SDL_floorf(event->motion.y / TileSize));
+            context->mouse.x = static_cast<int>(SDL_floorf(event->motion.x / TILE_SIZE));
+            context->mouse.y = static_cast<int>(SDL_floorf(event->motion.y / TILE_SIZE));
             break;
 
         case SDL_EVENT_KEY_DOWN:
