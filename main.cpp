@@ -12,7 +12,7 @@
 #include <SDL3/SDL_main.h>
 
 constexpr int TileSize = 24;
-constexpr float TileTexSize = 16;
+constexpr float TileTexSize = 16.f;
 
 constexpr auto TITLE_REGULAR = "Minesweeper";
 constexpr auto TITLE_GAME_OVER = "Minesweeper - Game Over";
@@ -29,6 +29,7 @@ struct AppContext {
     int startingWidth = 20;
     int startingHeight = 20;
     int startingMines = 40;
+    SDL_FRect *tileSrcRects{nullptr};
 };
 
 void trim(std::string &text) {
@@ -88,7 +89,7 @@ void parseSettingsFile(AppContext &context) {
 }
 
 SDL_FRect tileTexFRect(const Tile &tile, const bool explosionPoint, const bool isGameOver) {
-    SDL_FRect baseRect{
+    SDL_FRect tileRect{
         .x = 1,
         .y = 2,
         .w = TileTexSize,
@@ -98,33 +99,50 @@ SDL_FRect tileTexFRect(const Tile &tile, const bool explosionPoint, const bool i
     if (tile.isOpen) {
         if (tile.adjacentMines > 0) {
             const int numberIndex = tile.adjacentMines - 1;
-            baseRect.x = static_cast<float>(numberIndex % 4);
-            baseRect.y = SDL_floorf(static_cast<float>(numberIndex) / 4);
+            tileRect.x = static_cast<float>(numberIndex % 4);
+            tileRect.y = SDL_floorf(static_cast<float>(numberIndex) / 4);
         } else if (tile.isMine) {
-            baseRect.x = explosionPoint ? 3 : 2;
-            baseRect.y = 3;
+            tileRect.x = explosionPoint ? 3 : 2;
+            tileRect.y = 3;
+        } else if (tile.isQuestionMarked) {
+            tileRect.x = 0;
+            tileRect.y = 3;
         } else {
-            baseRect.x = 0;
-            baseRect.y = 2;
+            tileRect.x = 0;
+            tileRect.y = 2;
         }
     } else {
         if (tile.isFlagged) {
-            baseRect.x = 2;
-            baseRect.y = 2;
+            tileRect.x = 2;
+            tileRect.y = 2;
 
             if (isGameOver && !tile.isMine) {
-                baseRect.x = 3;
+                tileRect.x = 3;
             }
         } else if (tile.isQuestionMarked) {
-            baseRect.x = 1;
-            baseRect.y = 3;
+            tileRect.x = 1;
+            tileRect.y = 3;
         }
     }
 
-    baseRect.x *= TileTexSize;
-    baseRect.y *= TileTexSize;
+    tileRect.x *= TileTexSize;
+    tileRect.y *= TileTexSize;
 
-    return baseRect;
+    return tileRect;
+}
+
+void updateTileSrcRects(const AppContext *context) {
+    const auto &explosionPos = context->minefield->explosionPos();
+    const auto *minefield = context->minefield;
+
+    for (int i = 0; i < minefield->width() * context->minefield->height(); ++i) {
+        const int x = i % minefield->width();
+        const int y = i / minefield->width();
+        const auto &tile = minefield->at(x, y);
+
+        context->tileSrcRects[i] = tileTexFRect(tile, explosionPos.x == x && explosionPos.y == y,
+                                                context->minefield->isGameOver());
+    }
 }
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
@@ -173,12 +191,14 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         SDL_Log("Failed to create minefield");
         return SDL_APP_FAILURE;
     }
+    context->tileSrcRects = new SDL_FRect[context->minefield->width() * context->minefield->height()];
+    updateTileSrcRects(context);
 
     return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
-    auto *context = static_cast<AppContext *>(appstate);
+    const auto *context = static_cast<AppContext *>(appstate);
 
     const auto *minefield = context->minefield;
     auto *renderer = context->renderer;
@@ -191,7 +211,6 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_RenderClear(renderer);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    const auto explosionPos = minefield->explosionPos();
     for (int y = 0; y < height; ++y) {
         for (int x = 0; x < width; ++x) {
             const auto &tile = minefield->at(x, y);
@@ -200,10 +219,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
                 .w = static_cast<float>(TileSize), .h = static_cast<float>(TileSize)
             };
 
-            const auto tileTexRect = tileTexFRect(tile, explosionPos.x == x && explosionPos.y == y,
-                                                  minefield->isGameOver());
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            SDL_RenderTexture(renderer, texture, &tileTexRect, &rect);
+            SDL_RenderTexture(renderer, texture, &context->tileSrcRects[y * width + x], &rect);
         }
     }
 
@@ -228,6 +245,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             if (event->button.button == SDL_BUTTON_LEFT) {
                 context->minefield->openTile(context->mouse.x, context->mouse.y);
+                updateTileSrcRects(context);
                 if (context->minefield->isGameOver()) {
                     SDL_SetWindowTitle(context->window, TITLE_GAME_OVER);
                     return SDL_APP_CONTINUE;
@@ -239,6 +257,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             }
             if (event->button.button == SDL_BUTTON_RIGHT) {
                 context->minefield->toggleFlag(context->mouse.x, context->mouse.y);
+                updateTileSrcRects(context);
             }
             break;
 
@@ -261,6 +280,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
                 delete context->minefield;
                 context->minefield = new Minefield(width, height, mines);
+                updateTileSrcRects(context);
                 SDL_SetWindowTitle(context->window, TITLE_REGULAR);
             }
             break;
@@ -273,6 +293,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     if (appstate) {
         const auto *context = static_cast<AppContext *>(appstate);
+        delete[] context->tileSrcRects;
         delete context->minefield;
         SDL_DestroySurface(context->iconSurface);
         SDL_DestroyTexture(context->texture);

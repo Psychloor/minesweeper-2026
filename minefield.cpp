@@ -151,7 +151,6 @@ void Minefield::openNearbyTiles(const int xPos, const int yPos) {
             continue;
         }
         currentTile.isOpen = true;
-        currentTile.isQuestionMarked = false;
         if (currentTile.adjacentMines > 0) {
             continue;
         }
