@@ -14,8 +14,12 @@
 constexpr int TileSize = 24;
 constexpr float TileTexSize = 16;
 
+constexpr auto TITLE_REGULAR = "Minesweeper";
+constexpr auto TITLE_GAME_OVER = "Minesweeper - Game Over";
+constexpr auto TITLE_GAME_WON = "Minesweeper - You Win!";
+
 struct AppContext {
-    std::unique_ptr<Minefield> minefield;
+    Minefield *minefield{nullptr};
     SDL_Window *window{nullptr};
     SDL_Renderer *renderer{nullptr};
     SDL_Texture *texture{nullptr};
@@ -38,7 +42,7 @@ void trim(std::string &text) {
     text = text.substr(first, last - first + 1);
 }
 
-void parseSettingsFile(AppContext& context) {
+void parseSettingsFile(AppContext &context) {
     std::ifstream file("settings.ini");
     if (!file) {
         std::cout << "No settings.ini found, using defaults." << std::endl;
@@ -77,7 +81,7 @@ void parseSettingsFile(AppContext& context) {
             } else if (key == "mines") {
                 context.startingMines = std::stoi(value);
             }
-        } catch (const std::exception &exception) {
+        } catch ([[maybe_unused]] const std::exception &exception) {
             std::cout << "Invalid value in settings.ini: " << line << std::endl;
         }
     }
@@ -124,8 +128,7 @@ SDL_FRect tileTexFRect(const Tile &tile, const bool explosionPoint, const bool i
 }
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
-
-    SDL_SetAppMetadata("Minesweeper", "1.0", nullptr);
+    SDL_SetAppMetadata(TITLE_REGULAR, "1.0", nullptr);
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         SDL_Log("SDL_Init failed: %s", SDL_GetError());
@@ -136,7 +139,8 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     *appstate = context;
     parseSettingsFile(*context);
 
-    if (!SDL_CreateWindowAndRenderer("Minesweeper", context->startingWidth * TileSize, context->startingHeight * TileSize, 0,
+    if (!SDL_CreateWindowAndRenderer(TITLE_REGULAR, context->startingWidth * TileSize,
+                                     context->startingHeight * TileSize, 0,
                                      &context->window,
                                      &context->renderer)) {
         SDL_Log("SDL_CreateWindowAndRenderer failed: %s", SDL_GetError());
@@ -164,7 +168,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_APP_FAILURE;
     }
 
-    context->minefield = std::make_unique<Minefield>(context->startingWidth, context->startingHeight, context->startingMines);
+    context->minefield = new Minefield(context->startingWidth, context->startingHeight, context->startingMines);
     if (!context->minefield) {
         SDL_Log("Failed to create minefield");
         return SDL_APP_FAILURE;
@@ -176,7 +180,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 SDL_AppResult SDL_AppIterate(void *appstate) {
     auto *context = static_cast<AppContext *>(appstate);
 
-    const auto *minefield = context->minefield.get();
+    const auto *minefield = context->minefield;
     auto *renderer = context->renderer;
     auto *texture = context->texture;
     const auto width = minefield->width();
@@ -225,11 +229,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
             if (event->button.button == SDL_BUTTON_LEFT) {
                 context->minefield->openTile(context->mouse.x, context->mouse.y);
                 if (context->minefield->isGameOver()) {
-                    SDL_SetWindowTitle(context->window, "Minesweeper - Game Over");
+                    SDL_SetWindowTitle(context->window, TITLE_GAME_OVER);
                     return SDL_APP_CONTINUE;
                 }
                 if (context->minefield->isGameWon()) {
-                    SDL_SetWindowTitle(context->window, "Minesweeper - You Win!");
+                    SDL_SetWindowTitle(context->window, TITLE_GAME_WON);
                     return SDL_APP_CONTINUE;
                 }
             }
@@ -255,8 +259,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 const auto height = context->minefield->height();
                 const auto mines = context->minefield->numMines();
 
-                context->minefield = std::make_unique<Minefield>(width, height, mines);
-                SDL_SetWindowTitle(context->window, "Minesweeper");
+                delete context->minefield;
+                context->minefield = new Minefield(width, height, mines);
+                SDL_SetWindowTitle(context->window, TITLE_REGULAR);
             }
             break;
         default: ;
@@ -268,6 +273,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     if (appstate) {
         const auto *context = static_cast<AppContext *>(appstate);
+        delete context->minefield;
         SDL_DestroySurface(context->iconSurface);
         SDL_DestroyTexture(context->texture);
         SDL_DestroyRenderer(context->renderer);
