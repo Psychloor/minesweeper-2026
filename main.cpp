@@ -1,17 +1,15 @@
 #include <iostream>
 
 #include "minefield.h"
+#include "sdl_pointers.h"
 
 #include <SDL3/SDL.h>
 #include <ranges>
 #include <string>
 #include <fstream>
-#include <sstream>
 
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
-
-#include "sdl_pointers.h"
 
 constexpr int TileSize = 24;
 constexpr float TileTexSize = 16.f;
@@ -34,6 +32,8 @@ struct AppContext {
     std::unique_ptr<SDL_FRect[]> tileSrcRects = nullptr;
     std::unique_ptr<SDL_FRect[]> tileDstRect = nullptr;
 };
+
+static std::unique_ptr<AppContext> g_appContext{nullptr};
 
 void trim(std::string &text) {
     const auto first = text.find_first_not_of(" \t\r\n");
@@ -160,63 +160,64 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_APP_FAILURE;
     }
 
-    auto appContext = std::make_unique<AppContext>();
-    if (!appContext) {
+    g_appContext = std::make_unique<AppContext>();
+    if (!g_appContext) {
         SDL_Log("Failed to create app context");
         return SDL_APP_FAILURE;
     }
 
-    parseSettingsFile(*appContext);
+    parseSettingsFile(*g_appContext);
 
     SDL_Window *window;
     SDL_Renderer *renderer;
-    if (!SDL_CreateWindowAndRenderer(TITLE_REGULAR, appContext->startingWidth * TileSize,
-                                     appContext->startingHeight * TileSize, 0,
+    if (!SDL_CreateWindowAndRenderer(TITLE_REGULAR, g_appContext->startingWidth * TileSize,
+                                     g_appContext->startingHeight * TileSize, 0,
                                      &window,
                                      &renderer)) {
         SDL_Log("SDL_CreateWindowAndRenderer failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    appContext->window.reset(window);
-    appContext->renderer.reset(renderer);
+    g_appContext->window.reset(window);
+    g_appContext->renderer.reset(renderer);
 
-    SDL_SetRenderVSync(appContext->renderer.get(), 1);
+    SDL_SetRenderVSync(g_appContext->renderer.get(), 1);
 
-    appContext->iconSurface.reset(SDL_LoadPNG("assets/icon.png"));
-    if (!appContext->iconSurface) {
+    g_appContext->iconSurface.reset(SDL_LoadPNG("assets/icon.png"));
+    if (!g_appContext->iconSurface) {
         SDL_Log("SDL_LoadPNG failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    SDL_SetWindowIcon(appContext->window.get(), appContext->iconSurface.get());
+    SDL_SetWindowIcon(g_appContext->window.get(), g_appContext->iconSurface.get());
 
     SDL_Surface *surface = SDL_LoadPNG("assets/tiles.png");
     if (!surface) {
         SDL_Log("SDL_LoadPNG failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    appContext->texture.reset(SDL_CreateTextureFromSurface(appContext->renderer.get(), surface));
+    g_appContext->texture.reset(SDL_CreateTextureFromSurface(g_appContext->renderer.get(), surface));
     SDL_DestroySurface(surface);
-    if (!appContext->texture) {
+    if (!g_appContext->texture) {
         SDL_Log("SDL_CreateTextureFromSurface failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    appContext->minefield = std::make_unique<Minefield>(appContext->startingWidth, appContext->startingHeight,
-                                                     appContext->startingMines);
-    if (!appContext->minefield) {
+    g_appContext->minefield = std::make_unique<Minefield>(g_appContext->startingWidth, g_appContext->startingHeight,
+                                                          g_appContext->startingMines);
+    if (!g_appContext->minefield) {
         SDL_Log("Failed to create minefield");
         return SDL_APP_FAILURE;
     }
-    appContext->tileSrcRects = std::make_unique<SDL_FRect[]>(appContext->minefield->width() * appContext->minefield->height());
-    appContext->tileDstRect = std::make_unique<SDL_FRect[]>(appContext->minefield->width() * appContext->minefield->height());
-    updateTileSrcRects(appContext.get());
+    g_appContext->tileSrcRects = std::make_unique<SDL_FRect[]>(
+        g_appContext->minefield->width() * g_appContext->minefield->height());
+    g_appContext->tileDstRect = std::make_unique<SDL_FRect[]>(
+        g_appContext->minefield->width() * g_appContext->minefield->height());
+    updateTileSrcRects(g_appContext.get());
 
-    *appstate = appContext.release();
     return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
-    const auto *context = static_cast<AppContext *>(appstate);
+    const auto *context = g_appContext.get();
 
     const auto *const minefield = context->minefield.get();
     auto *const renderer = context->renderer.get();
@@ -243,13 +244,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     SDL_RenderRect(renderer, &mouseRect);
 
     SDL_RenderPresent(renderer);
-    SDL_Delay(2);
     return SDL_APP_CONTINUE;
 }
 
 // ReSharper disable once CppParameterMayBeConstPtrOrRef
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
-    auto *context = static_cast<AppContext *>(appstate);
+    auto *context = g_appContext.get();
 
     switch (event->type) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
@@ -300,8 +300,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 }
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
-    std::unique_ptr<AppContext> context(static_cast<AppContext*>(appstate));
-    context.reset();
+    g_appContext.reset();
 
     SDL_Quit();
 }
