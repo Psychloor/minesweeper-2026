@@ -4,10 +4,7 @@
 
 #ifndef MINESWEEPER_MINEFIELD_H
 #define MINESWEEPER_MINEFIELD_H
-#include <cstdint>
-#include <optional>
-#include <span>
-#include <vector>
+#include <memory>
 
 #include "SDL3/SDL_rect.h"
 
@@ -17,13 +14,31 @@ struct Tile {
     bool isFlagged: 1 = false;
     bool isQuestionMarked: 1 = false;
     uint8_t adjacentMines: 4 = 0;
+
+    explicit Tile() = default;
+
+    Tile(const Tile &other) = delete;
+
+    Tile(Tile &&other) noexcept = delete;
+
+    Tile & operator=(const Tile &other) = delete;
+
+    Tile & operator=(Tile &&other) noexcept = delete;
 };
 
 class Minefield {
 public:
     explicit Minefield(int width, int height, int numMines);
 
-    ~Minefield();
+    ~Minefield() = default;
+
+    Minefield(const Minefield &other) = delete;
+
+    Minefield(Minefield &&other) noexcept = delete;
+
+    Minefield & operator=(const Minefield &other) = delete;
+
+    Minefield & operator=(Minefield &&other) noexcept = delete;
 
     void openTile(int xPos, int yPos);
 
@@ -64,7 +79,7 @@ private:
     bool firstOpen_ = true;
     bool isGameOver_ = false;
     bool isGameWon_ = false;
-    Tile* tiles_ = nullptr;
+    std::unique_ptr<Tile[]> tiles_ = nullptr;
     SDL_Point explosionPos_{-1, -1};
 };
 

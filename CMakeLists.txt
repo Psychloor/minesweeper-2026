@@ -20,6 +20,7 @@ add_executable(minesweeper WIN32
         minefield.cpp
         minefield.h
         rng.h
+        sdl_pointers.h
 )
 
 target_compile_definitions(minesweeper PRIVATE NOMINMAX)

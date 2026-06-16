@@ -11,6 +11,8 @@
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
 
+#include "sdl_pointers.h"
+
 constexpr int TileSize = 24;
 constexpr float TileTexSize = 16.f;
 
@@ -19,18 +21,18 @@ constexpr auto TITLE_GAME_OVER = "Minesweeper - Game Over";
 constexpr auto TITLE_GAME_WON = "Minesweeper - You Win!";
 
 struct AppContext {
-    Minefield *minefield{nullptr};
-    SDL_Window *window{nullptr};
-    SDL_Renderer *renderer{nullptr};
-    SDL_Texture *texture{nullptr};
-    SDL_Surface *iconSurface{nullptr};
+    WindowPtr window{nullptr};
+    RenderPtr renderer{nullptr};
+    TexturePtr texture{nullptr};
+    SurfacePtr iconSurface{nullptr};
+    std::unique_ptr<Minefield> minefield{nullptr};
     SDL_Point mouse{};
 
     int startingWidth = 20;
     int startingHeight = 20;
     int startingMines = 40;
-    SDL_FRect *tileSrcRects{nullptr};
-    SDL_FRect *tileDstRect{nullptr};
+    std::unique_ptr<SDL_FRect[]> tileSrcRects = nullptr;
+    std::unique_ptr<SDL_FRect[]> tileDstRect = nullptr;
 };
 
 void trim(std::string &text) {
@@ -134,7 +136,7 @@ SDL_FRect tileTexFRect(const Tile &tile, const bool explosionPoint, const bool i
 
 void updateTileSrcRects(const AppContext *context) {
     const auto &explosionPos = context->minefield->explosionPos();
-    const auto *minefield = context->minefield;
+    const auto *minefield = context->minefield.get();
 
     for (int i = 0; i < minefield->width() * context->minefield->height(); ++i) {
         const int x = i % minefield->width();
@@ -162,42 +164,47 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     *appstate = context;
     parseSettingsFile(*context);
 
+    SDL_Window *window;
+    SDL_Renderer *renderer;
     if (!SDL_CreateWindowAndRenderer(TITLE_REGULAR, context->startingWidth * TileSize,
                                      context->startingHeight * TileSize, 0,
-                                     &context->window,
-                                     &context->renderer)) {
+                                     &window,
+                                     &renderer)) {
         SDL_Log("SDL_CreateWindowAndRenderer failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+    context->window.reset(window);
+    context->renderer.reset(renderer);
 
-    SDL_SetRenderVSync(context->renderer, 1);
+    SDL_SetRenderVSync(context->renderer.get(), 1);
 
-    context->iconSurface = SDL_LoadPNG("assets/icon.png");
+    context->iconSurface.reset(SDL_LoadPNG("assets/icon.png"));
     if (!context->iconSurface) {
         SDL_Log("SDL_LoadPNG failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    SDL_SetWindowIcon(context->window, context->iconSurface);
+    SDL_SetWindowIcon(context->window.get(), context->iconSurface.get());
 
     SDL_Surface *surface = SDL_LoadPNG("assets/tiles.png");
     if (!surface) {
         SDL_Log("SDL_LoadPNG failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
-    context->texture = SDL_CreateTextureFromSurface(context->renderer, surface);
+    context->texture.reset(SDL_CreateTextureFromSurface(context->renderer.get(), surface));
     SDL_DestroySurface(surface);
     if (!context->texture) {
         SDL_Log("SDL_CreateTextureFromSurface failed: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    context->minefield = new Minefield(context->startingWidth, context->startingHeight, context->startingMines);
+    context->minefield = std::make_unique<Minefield>(context->startingWidth, context->startingHeight,
+                                                     context->startingMines);
     if (!context->minefield) {
         SDL_Log("Failed to create minefield");
         return SDL_APP_FAILURE;
     }
-    context->tileSrcRects = new SDL_FRect[context->minefield->width() * context->minefield->height()];
-    context->tileDstRect = new SDL_FRect[context->minefield->width() * context->minefield->height()];
+    context->tileSrcRects = std::make_unique<SDL_FRect[]>(context->minefield->width() * context->minefield->height());
+    context->tileDstRect = std::make_unique<SDL_FRect[]>(context->minefield->width() * context->minefield->height());
     updateTileSrcRects(context);
 
     return SDL_APP_CONTINUE;
@@ -206,9 +213,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 SDL_AppResult SDL_AppIterate(void *appstate) {
     const auto *context = static_cast<AppContext *>(appstate);
 
-    const auto *minefield = context->minefield;
-    auto *renderer = context->renderer;
-    auto *texture = context->texture;
+    const auto *const minefield = context->minefield.get();
+    auto *const renderer = context->renderer.get();
+    auto *const texture = context->texture.get();
     const auto width = minefield->width();
     const auto height = minefield->height();
 
@@ -235,6 +242,7 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     return SDL_APP_CONTINUE;
 }
 
+// ReSharper disable once CppParameterMayBeConstPtrOrRef
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
     auto *context = static_cast<AppContext *>(appstate);
 
@@ -244,11 +252,11 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 context->minefield->openTile(context->mouse.x, context->mouse.y);
                 updateTileSrcRects(context);
                 if (context->minefield->isGameOver()) {
-                    SDL_SetWindowTitle(context->window, TITLE_GAME_OVER);
+                    SDL_SetWindowTitle(context->window.get(), TITLE_GAME_OVER);
                     return SDL_APP_CONTINUE;
                 }
                 if (context->minefield->isGameWon()) {
-                    SDL_SetWindowTitle(context->window, TITLE_GAME_WON);
+                    SDL_SetWindowTitle(context->window.get(), TITLE_GAME_WON);
                     return SDL_APP_CONTINUE;
                 }
             }
@@ -275,10 +283,9 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
                 const auto height = context->minefield->height();
                 const auto mines = context->minefield->numMines();
 
-                delete context->minefield;
-                context->minefield = new Minefield(width, height, mines);
+                context->minefield = std::make_unique<Minefield>(width, height, mines);
                 updateTileSrcRects(context);
-                SDL_SetWindowTitle(context->window, TITLE_REGULAR);
+                SDL_SetWindowTitle(context->window.get(), TITLE_REGULAR);
             }
             break;
         default: ;
@@ -289,14 +296,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     if (appstate) {
-        const auto *context = static_cast<AppContext *>(appstate);
-        delete[] context->tileDstRect;
-        delete[] context->tileSrcRects;
-        delete context->minefield;
-        SDL_DestroySurface(context->iconSurface);
-        SDL_DestroyTexture(context->texture);
-        SDL_DestroyRenderer(context->renderer);
-        SDL_DestroyWindow(context->window);
+        auto *context = static_cast<AppContext *>(appstate);
         delete context;
     }
 

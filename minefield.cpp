@@ -22,11 +22,7 @@ constexpr std::array ADJACENT_CELLS{
 
 Minefield::Minefield(const int width, const int height, const int numMines) : width_(width), height_(height) {
     numMines_ = std::clamp(numMines, 1, (width * height) >> 1);
-    tiles_ = new Tile[width * height];
-}
-
-Minefield::~Minefield() {
-    delete[] tiles_;
+    tiles_ = std::make_unique<Tile[]>(width * height);
 }
 
 void Minefield::openTile(const int xPos, const int yPos) {
