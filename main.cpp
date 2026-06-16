@@ -30,6 +30,7 @@ struct AppContext {
     int startingHeight = 20;
     int startingMines = 40;
     SDL_FRect *tileSrcRects{nullptr};
+    SDL_FRect *tileDstRect{nullptr};
 };
 
 void trim(std::string &text) {
@@ -142,6 +143,10 @@ void updateTileSrcRects(const AppContext *context) {
 
         context->tileSrcRects[i] = tileTexFRect(tile, explosionPos.x == x && explosionPos.y == y,
                                                 context->minefield->isGameOver());
+        context->tileDstRect[i] = {
+            .x = static_cast<float>(x * TileSize), .y = static_cast<float>(y * TileSize),
+            .w = static_cast<float>(TileSize), .h = static_cast<float>(TileSize)
+        };
     }
 }
 
@@ -192,6 +197,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         return SDL_APP_FAILURE;
     }
     context->tileSrcRects = new SDL_FRect[context->minefield->width() * context->minefield->height()];
+    context->tileDstRect = new SDL_FRect[context->minefield->width() * context->minefield->height()];
     updateTileSrcRects(context);
 
     return SDL_APP_CONTINUE;
@@ -207,21 +213,12 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     const auto height = minefield->height();
 
     // Background
-    SDL_SetRenderDrawColor(renderer, 48, 48, 48, 255);
+    SDL_SetRenderDrawColor(renderer, 100, 149, 237, 255);
     SDL_RenderClear(renderer);
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            const auto &tile = minefield->at(x, y);
-            const auto rect = SDL_FRect{
-                .x = static_cast<float>(x * TileSize), .y = static_cast<float>(y * TileSize),
-                .w = static_cast<float>(TileSize), .h = static_cast<float>(TileSize)
-            };
-
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            SDL_RenderTexture(renderer, texture, &context->tileSrcRects[y * width + x], &rect);
-        }
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    for (int i = 0; i < width * height; ++i) {
+        SDL_RenderTexture(renderer, texture, &context->tileSrcRects[i], &context->tileDstRect[i]);
     }
 
     // Cursor
@@ -293,6 +290,7 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event) {
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     if (appstate) {
         const auto *context = static_cast<AppContext *>(appstate);
+        delete[] context->tileDstRect;
         delete[] context->tileSrcRects;
         delete context->minefield;
         SDL_DestroySurface(context->iconSurface);
