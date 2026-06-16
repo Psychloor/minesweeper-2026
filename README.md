@@ -83,7 +83,7 @@ This project uses CMake and SDL3.
 
 - CMake
 - A C++23-capable compiler
-- SDL3 source included in the project as `SDL`
+- SDL3 source included in the project as a submodule at `third_party/SDL`
 
 ### Build with CMake
 
