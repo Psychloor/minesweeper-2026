@@ -26,8 +26,11 @@ int minMax(const int current, const int min, const int max) {
 
 Minefield::Minefield(const int width, const int height, const int numMines) : width_(width), height_(height) {
     numMines_ = minMax(numMines, 1, (width * height) >> 1);
-    tiles_.reserve(width_ * height_);
-    std::generate_n(std::back_inserter(tiles_), width_ * height_, [] { return Tile{}; });
+    tiles_ = new Tile[width * height];
+}
+
+Minefield::~Minefield() {
+    delete[] tiles_;
 }
 
 void Minefield::openTile(const int xPos, const int yPos) {
@@ -55,7 +58,7 @@ void Minefield::openTile(const int xPos, const int yPos) {
     }
 }
 
-void Minefield::toggleFlag(const int xPos, const int yPos) {
+void Minefield::toggleFlag(const int xPos, const int yPos) const {
     if (isGameOver_) return;
     if (isGameWon_) return;
 
@@ -73,10 +76,6 @@ void Minefield::toggleFlag(const int xPos, const int yPos) {
     } else {
         tile.isQuestionMarked = false;
     }
-}
-
-const std::vector<Tile> &Minefield::tiles() const {
-    return tiles_;
 }
 
 int Minefield::width() const {
@@ -107,7 +106,7 @@ const Tile &Minefield::at(const int xPos, const int yPos) const {
     return tiles_[yPos * width_ + xPos];
 }
 
-void Minefield::placeMines(const int firstX, const int firstY) {
+void Minefield::placeMines(const int firstX, const int firstY) const {
     RNG rng;
     std::uniform_int_distribution mineDistribution(0, width_ * height_ - 1);
     size_t minesToPlace = numMines_;
@@ -122,7 +121,7 @@ void Minefield::placeMines(const int firstX, const int firstY) {
     }
 }
 
-void Minefield::countAdjacentMines() {
+void Minefield::countAdjacentMines() const {
     for (int i = 0; i < width_ * height_; ++i) {
         const auto x = i % width_;
         const auto y = i / width_;
@@ -182,7 +181,8 @@ void Minefield::openNearbyTiles(const int xPos, const int yPos) {
 }
 
 void Minefield::checkWinCondition() {
-    for (const auto &tile: tiles_) {
+    for (int i = 0; i < width() * height(); ++i) {
+        const auto &tile = tiles_[i];
         if (!tile.isMine && !tile.isOpen) {
             return;
         }
@@ -192,8 +192,9 @@ void Minefield::checkWinCondition() {
     isGameWon_ = true;
 }
 
-void Minefield::openAllMines() {
-    for (auto &tile: tiles_) {
+void Minefield::openAllMines() const {
+    for (int i = 0; i < width() * height(); ++i) {
+        auto &tile = tiles_[i];
         if (tile.isMine && !tile.isFlagged) {
             tile.isOpen = true;
             tile.isQuestionMarked = false;

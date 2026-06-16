@@ -6,6 +6,7 @@
 #define MINESWEEPER_MINEFIELD_H
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "SDL3/SDL_rect.h"
@@ -20,15 +21,13 @@ struct Tile {
 
 class Minefield {
 public:
-    Minefield(int width, int height, int numMines);
+    explicit Minefield(int width, int height, int numMines);
 
-    ~Minefield() = default;
+    ~Minefield();
 
     void openTile(int xPos, int yPos);
 
-    void toggleFlag(int xPos, int yPos);
-
-    [[nodiscard]] const std::vector<Tile> &tiles() const;
+    void toggleFlag(int xPos, int yPos) const;
 
     [[nodiscard]] int width() const;
 
@@ -45,15 +44,15 @@ public:
     [[nodiscard]] const Tile &at(int xPos, int yPos) const;
 
 private:
-    void placeMines(int firstX, int firstY);
+    void placeMines(int firstX, int firstY) const;
 
-    void countAdjacentMines();
+    void countAdjacentMines() const;
 
     void openNearbyTiles(int xPos, int yPos);
 
     void checkWinCondition();
 
-    void openAllMines();
+    void openAllMines() const;
 
     Tile &at(int xPos, int yPos);
 
@@ -65,7 +64,7 @@ private:
     bool firstOpen_ = true;
     bool isGameOver_ = false;
     bool isGameWon_ = false;
-    std::vector<Tile> tiles_{};
+    Tile* tiles_ = nullptr;
     SDL_Point explosionPos_{-1, -1};
 };
 
