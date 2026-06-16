@@ -20,12 +20,8 @@ constexpr std::array ADJACENT_CELLS{
     std::make_pair(1, 1)
 };
 
-int minMax(const int current, const int min, const int max) {
-    return std::min(std::max(current, min), max);
-}
-
 Minefield::Minefield(const int width, const int height, const int numMines) : width_(width), height_(height) {
-    numMines_ = minMax(numMines, 1, (width * height) >> 1);
+    numMines_ = std::clamp(numMines, 1, (width * height) >> 1);
     tiles_ = new Tile[width * height];
 }
 
