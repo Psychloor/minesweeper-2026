@@ -1,0 +1,119 @@
+# Minesweeper
+
+A simple Minesweeper game written in C++ using SDL3.
+
+## Features
+
+- Classic Minesweeper-style gameplay
+- Configurable board width, height, and mine count
+- First click is safe
+- Flood-fill opening for empty cells
+- Flag and question-mark cell states
+- Game over and win detection
+- Sprite-based rendering with SDL3
+
+## Controls
+
+| Input | Action |
+| --- | --- |
+| Left click | Open a cell |
+| Right click | Cycle cell mark: flag → question mark → unmarked |
+| `N` | Start a new field/game after game over or win |
+| `Space` | Start a new field/game after game over or win |
+
+## Configuration
+
+The game reads settings from `settings.ini`.
+
+Example:
+```ini 
+width=20
+height=20
+mines=40
+```
+
+
+### Settings
+
+| Key | Description |
+| --- | --- |
+| `width` | Board width in cells |
+| `height` | Board height in cells |
+| `mines` | Number of mines |
+
+The mine count is clamped automatically:
+
+- Minimum: `1`
+- Maximum: half of the total cells
+
+For example, with a `20x20` board, there are `400` cells, so the maximum mine count is `200`.
+
+## How to Play
+
+The goal is to open every non-mine cell without clicking on a mine.
+
+- Left-click a cell to open it.
+- If the cell contains a mine, the game is over.
+- If the cell has no nearby mines, nearby empty cells are opened automatically.
+- Right-click a closed cell to mark it.
+- Right-click cycles through:
+    - Flag
+    - Question mark
+    - Unmarked
+
+You win when all non-mine cells are opened.
+
+## Assets
+
+Game assets are stored in the `assets` folder.
+
+Expected files include:
+```text
+assets/ tiles.png icon.png
+```
+
+
+When building with CMake, the `assets` folder and `settings.ini` are copied next to the executable automatically.
+
+## Building
+
+This project uses CMake and SDL3.
+
+### Requirements
+
+- CMake
+- A C++23-capable compiler
+- SDL3 source included in the project as `SDL`
+
+### Build with CMake
+
+```bash
+cmake -S . -B build cmake --build build
+```
+
+After building, the executable will be placed in the build output directory, along with:
+```text
+assets/ settings.ini
+```
+
+
+## Running
+
+Run the generated executable from its output directory so it can find `settings.ini` and the `assets` folder.
+
+Example on Windows:
+```powershell
+.\minesweeper.exe
+```
+
+Example on Linux/macOS:
+```bash
+./minesweeper
+```
+
+
+## Notes
+
+- Pressing `N` or `Space` only starts a new game after the current game has ended.
+- The first opened cell will not contain a mine.
+- The window size is based on the configured board size.
